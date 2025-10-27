@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+
+# PyCharm
+.idea/
+
+# Environment
+.env
+
+# Experiments
+experiments/results/*.csv
+experiments/results/*.json
+
+# Paper
+paper/*.pdf
+paper/*.aux
+paper/*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test outputs
+*.pyc
+.pytest_cache/
