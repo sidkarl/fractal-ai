@@ -5,7 +5,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from .base import BaseModel
 
-load_dotenv()
+load_dotenv(override=True)
 
 
 class OpenAIModel(BaseModel):
