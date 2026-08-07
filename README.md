@@ -6,8 +6,8 @@ Motivation
 
 Current multi-agent systems fall into two failure modes:
 
-Fixed teams — cannot adapt when task structure is unknown at design time.
-Unbounded spawning — cost explodes exponentially with task complexity.
+Fixed teams - cannot adapt when task structure is unknown at design time.
+Unbounded spawning - cost explodes exponentially with task complexity.
 
 Fractal AI resolves this by decoupling the two axes: as many specialists as needed at each level, but no more than 3–4 levels deep. This makes recursive decomposition tractable without sacrificing adaptability.
 
@@ -27,18 +27,18 @@ Architecture
 
 Core abstractions:
 
-Task — unit of work; carries context, budget, depth counter.
-Agent — decides whether to solve directly or decompose into sub-tasks.
-Result — structured output; propagated up the tree and aggregated.
+Task - unit of work; carries context, budget, depth counter.
+Agent - decides whether to solve directly or decompose into sub-tasks.
+Result - structured output; propagated up the tree and aggregated.
 Resource Control Strategies
 
 Five strategies are implemented and evaluated:
 
-Fixed depth budget — hard cap on recursion levels.
-Token/cost budget — top-down budget allocation; children inherit fractions of parent's remaining budget.
-Confidence-gated recursion — agents only spawn sub-agents when self-assessed confidence falls below threshold.
-Complexity-based allocation — upfront classifier estimates task complexity, allocates depth/breadth accordingly.
-Adaptive/learned controller — meta-policy decides spawn/recurse/terminate per call.
+Fixed depth budget - hard cap on recursion levels.
+Token/cost budget - top-down budget allocation; children inherit fractions of parent's remaining budget.
+Confidence-gated recursion - agents only spawn sub-agents when self-assessed confidence falls below threshold.
+Complexity-based allocation - upfront classifier estimates task complexity, allocates depth/breadth accordingly.
+Adaptive/learned controller - meta-policy decides spawn/recurse/terminate per call.
 
 Confirm strategy names against your design docs before publishing.
 
