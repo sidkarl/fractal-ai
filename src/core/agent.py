@@ -1,11 +1,13 @@
 """Base Agent class for all agents in the system."""
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, List, Tuple
 import time
+import concurrent.futures
 from .task import Task
 from .result import Result
 from ..models.base import BaseModel
 from ..models.factory import ModelFactory
+
 
 # Global configuration
 MAX_RECURSION_DEPTH = 3
@@ -19,18 +21,18 @@ class Agent(ABC):
     """
 
     def __init__(
-            self,
-            name: str,
-            role: str,
-            model_provider: str = "openai",
-            model_name: str = "gpt-4o"
+        self,
+        name: str,
+        role: str,
+        model_provider: str = "openai",
+        model_name: str = "gpt-4o"
     ):
         """Initialize agent.
 
         Args:
-            name: Agent's name (e.g., "backend_dev_001")
-            role: Agent's role (e.g., "Backend Developer")
-            model_provider: LLM provider ("openai" or "anthropic")
+            name: Agent's name, for example backend_dev_001
+            role: Agent's role, for example Backend Developer
+            model_provider: LLM provider, openai or anthropic
             model_name: Specific model to use
         """
         self.name = name
@@ -42,33 +44,30 @@ class Agent(ABC):
 
         Args:
             task: Task to execute
-            depth: Current recursion depth (0 = top level)
+            depth: Current recursion depth, 0 means top level
 
         Returns:
             Result object with output
         """
         start_time = time.time()
 
-        print(f"{'  ' * depth}🤖 {self.role} starting: {task.description[:50]}...")
+        print(f"{'  ' * depth}{self.role} starting: {task.description[:50]}...")
 
-        # Check if we've hit max depth
         if depth >= MAX_RECURSION_DEPTH:
-            print(f"{'  ' * depth}⚠️  Max depth reached, executing directly")
+            print(f"{'  ' * depth}Max depth reached, executing directly")
             content = self._execute_directly(task)
             sub_results = []
         else:
-            # Decide whether to delegate or do it ourselves
             if self._should_delegate(task, depth):
-                print(f"{'  ' * depth}📋 Delegating to sub-agents...")
+                print(f"{'  ' * depth}Delegating to sub-agents...")
                 content, sub_results = self._execute_with_delegation(task, depth)
             else:
-                print(f"{'  ' * depth}✍️  Executing directly")
+                print(f"{'  ' * depth}Executing directly")
                 content = self._execute_directly(task)
                 sub_results = []
 
         execution_time = time.time() - start_time
 
-        # Calculate cost (this agent + all sub-agents)
         my_cost = self.model.total_cost
         total_cost = my_cost + sum(r.total_cost() for r in sub_results)
 
@@ -83,7 +82,7 @@ class Agent(ABC):
             metadata={"depth": depth, "role": self.role}
         )
 
-        print(f"{'  ' * depth} {self.role} complete (${total_cost:.4f}, {execution_time:.1f}s)")
+        print(f"{'  ' * depth}{self.role} complete (${total_cost:.4f}, {execution_time:.1f}s)")
 
         return result
 
@@ -99,27 +98,76 @@ class Agent(ABC):
         Returns:
             True if should delegate, False if should execute directly
         """
-        # Default: simple heuristic based on task description length
-        # Complex tasks (long descriptions) should be delegated
-        # Override this in specialist agents for smarter decisions
         return len(task.description) > 100 and depth < MAX_RECURSION_DEPTH
 
-    def _execute_with_delegation(self, task: Task, depth: int) -> tuple[str, List[Result]]:
-        """Execute task by delegating to sub-agents.
+    def get_sub_agents(self, task: Task, depth: int) -> List['Agent']:
+        """Define which sub-agents to spawn for this task.
 
         Override this in subclasses to define delegation strategy.
+        Default returns an empty list, meaning no delegation possible
+        unless a subclass provides sub-agents.
+
+        Args:
+            task: Task being delegated
+            depth: Current recursion depth
+
+        Returns:
+            List of Agent instances to run in parallel
+        """
+        return []
+
+    def _execute_with_delegation(self, task: Task, depth: int) -> Tuple[str, List[Result]]:
+        """Execute task by delegating to sub-agents, running them in parallel.
 
         Args:
             task: Task to delegate
             depth: Current recursion depth
 
         Returns:
-            Tuple of (synthesized_content, list_of_sub_results)
+            Tuple of synthesized_content and list_of_sub_results
         """
-        # Default implementation: just execute directly
-        # Subclasses should override this to spawn sub-agents
-        content = self._execute_directly(task)
-        return content, []
+        sub_agents = self.get_sub_agents(task, depth)
+
+        if not sub_agents:
+            # No sub-agents defined, fall back to direct execution
+            content = self._execute_directly(task)
+            return content, []
+
+        sub_results: List[Result] = []
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(sub_agents)) as executor:
+            futures = {
+                executor.submit(agent.execute, task, depth + 1): agent
+                for agent in sub_agents
+            }
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
+                sub_results.append(result)
+
+        content = self._synthesize(task, sub_results)
+
+        return content, sub_results
+
+    def _synthesize(self, task: Task, sub_results: List[Result]) -> str:
+        """Combine sub-agent outputs into a single coherent result.
+
+        Default implementation concatenates outputs with labels.
+        Override in subclasses for smarter synthesis, for example
+        using the LLM itself to merge and reconcile outputs.
+
+        Args:
+            task: Original task
+            sub_results: Results from all sub-agents
+
+        Returns:
+            Synthesized content string
+        """
+        sections = []
+        for result in sub_results:
+            role = result.metadata.get("role", result.agent_name)
+            sections.append(f"--- {role} ---\n{result.content}\n")
+
+        return "\n".join(sections)
 
     @abstractmethod
     def _execute_directly(self, task: Task) -> str:
@@ -132,14 +180,14 @@ class Agent(ABC):
             task: Task to execute
 
         Returns:
-            The output content (code, text, analysis, etc.)
+            The output content, code, text, or analysis
         """
         pass
 
     def _create_prompt(self, task: Task) -> str:
         """Create a prompt for the LLM based on the task.
 
-        Override in subclasses for role-specific prompting.
+        Override in subclasses for role specific prompting.
 
         Args:
             task: Task to create prompt for
@@ -161,7 +209,7 @@ Task: {task.description}
     def _get_system_prompt(self) -> str:
         """Get system prompt for this agent's role.
 
-        Override in subclasses for role-specific instructions.
+        Override in subclasses for role specific instructions.
 
         Returns:
             System prompt string
