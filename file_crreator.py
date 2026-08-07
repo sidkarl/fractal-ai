@@ -45,12 +45,12 @@ files = [
 # Create directories
 for dir_path in dirs:
     os.makedirs(dir_path, exist_ok=True)
-    print(f"✅ Created directory: {dir_path}")
+    print(f" Created directory: {dir_path}")
 
 # Create empty files
 for file_path in files:
     with open(file_path, 'w') as f:
         pass
-    print(f"✅ Created file: {file_path}")
+    print(f" Created file: {file_path}")
 
-print("\n🎉 Project structure created successfully!")
+print("\n Project structure created successfully!")
