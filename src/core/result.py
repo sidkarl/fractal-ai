@@ -31,7 +31,9 @@ class Result:
     sub_results: List['Result'] = field(default_factory=list)
 
     def __str__(self) -> str:
-        status = "pass" if self.success else "X"
+        status = "pass" if self.success else "fail"
+        if self.sub_results:
+            return f"{status} Result from {self.agent_name} (own cost ${self.cost:.4f}, total cost ${self.total_cost():.4f})"
         return f"{status} Result from {self.agent_name} (${self.cost:.4f})"
 
     def total_cost(self) -> float:
